@@ -1,7 +1,5 @@
 import random
 
-
-
 # class Player:
 #     def __init__(self, px, py, size, energy, movement)
 class Player:
@@ -12,32 +10,20 @@ class Player:
         self.energy = energy
         self.movement = movement 
 
-# Redundant
-    # def handle_input(self):
-    #     keys = pygame.key.get_pressed() 
-
-    #     if keys[pygame.K_LEFT]:
-    #         self.px -= self.movement
-    #     if keys[pygame.K_RIGHT]:
-    #         self.px += self.movement
-    #     if keys[pygame.K_UP]:
-    #         self.py -= self.movement
-    #     if keys[pygame.K_DOWN]:
-    #         self.py += self.movement
-
-class Cell: 
+class Cell:
+    next_id = 0 
     def __init__(self, px, py, size, energy, movement):
         self.px = px
         self.py = py
         self.size = size
         self.energy = energy
         self.movement = movement
-        self.cell_id = 0
+        self.cell_id = Cell.next_id
+        Cell.next_id += 1
 
 # @classmethod decorator is used to define a class method that operates on the class 
 # itself rather than an instance. It allows you to perform class-level operations and 
 # provides a convenient way to create new instances with random attribute values 
-
 
     @classmethod
     def cell_random(cls): #cls is just short for class
@@ -73,38 +59,18 @@ class Cell:
         # Update the cell's position based on the random movement
 
     # If a cell is too close, one consumes the other based on which is larger
-    def cell_collision(self, cells, player):
-        for i in range(len(cells)):
-            for j in range([i] + 1, len(cells)):
-                if abs(cells.position[i] - cells.position[j]) <= abs(cells.size[i]) or abs(cells.size[j]): 
-                    if abs(cells.size[i]) > abs(cells.size[j]):
-                        cells.size[i] += abs(cells.size[j])
-                        cells.energy[i] += abs(cells.energy[j])
-                        del cells[j]             
-                    else:
-                        cells.size[j] += abs(cells.size[i])
-                        cells.energy[j] += abs(cells.energy[i])
-                        del cells[i]
-                    
-            if abs(cells.position[i] - player.position) < abs(cells[i].size) or abs(player.size):
-                if abs(cells.size[i] > player.size):
-                    print("Player consumed by a larger cell. Game over!")
-                    # create a failstate
-                else:
-                    player.size += abs(cells.size[i])
-                    player.energy += abs(cells.energy[i])
-                    del cells[i]
+    
 
-                    break                   
 
 class Food:
-    def __init__(self, px, py, size, energy, colour):
+    next_id = 0
+    def __init__(self, px, py, size, energy):
         self.px = px
         self.py = py
         self.size = size
         self.energy = energy
-        self.colour = colour
-        self.food_id = 0
+        self.food_id = Food.next_id
+        Food.next_id += 1
 
     @classmethod
     def feed_random(cls): #cls is just short for class
@@ -112,32 +78,86 @@ class Food:
         py = random.randint(1,600)
         size = random.randint(1, 3)
         energy = random.randint(10, 50)
-        if energy <= 10:
-            colour = "green"
+        # if energy <= 10:
+        #     colour = "green"
+        # elif 10 < energy <= 30:
+        #     colour = "orange"
+        # elif 30 < energy <= 40:
+        #     colour = "red"
+        # else:
+        #     colour = "blue"
 
+        return cls(px, py, size, energy)
 
-            
-        elif 10 < energy <= 30:
-            colour = "orange"
-        elif 30 < energy <= 40:
-            colour = "red"
-        else:
-            colour = "blue"
+def collision(cells, player, pantry):
+    foodbin = []
+    cellbin = []
+    for C1 in cells.values():
+        for C2 in range(C1.cell_id + 1, len(cells)):
+            if (abs(C1.px - cells[C2].px) <= C1.size + cells[C2].size) or (abs(C1.py - cells[C2].py) <= C1.size + cells[C2].size):
+                if C1.size > cells[C2].size:
+                    C1.size += cells[C2].size
+                    C1.energy += cells[C2].energy
+                    cellbin.append[C2.cell_id]
+                elif C1.size == cells[C2].size:
+                    break
+                else:
+                    cells[C2].size += C1.size
+                    cells[C2].energy += C1.energy
+                    cellbin.append[C1.cell_id]
+                    break
 
-        return cls(px, py, size, energy, colour)
+    # Cell/Player collision
+    for C1 in cells.values():
+        if (abs(C1.px - player.px) < C1.size + player.size) or (abs(C1.py - player.py) < C1.size + player.size):
+            if C1.size > player.size:
+                print("Player consumed by a larger cell. Game over!")
+                event.type == pygame.QUIT
+            elif C1.size == player.size:
+                break
+            else:
+                player.size += C1.size
+                player.energy += C1.energy
+                cellbin.append[C1.cell_id]
+                break
+
+    # Cell/Food collision
+    for C1 in cells.values():
+        for f in pantry.values():
+            if C1.px == f.px and C1.py == f.py:
+                C1.size += 1
+                foodbin.append[f]
+                break
+
+    # Player/Food collision
+    for f in pantry.values():
+        if abs(player.px - f.px) <= player.size: 
+                player.size += 1
+                foodbin.append[f]
     
-    def feed_collision(cells, pantry):
-            for cell in cells:
-                for food in pantry:
-                    if cells[cell].position == pantry[food].position:
-                        cell.size += 1
-                        del pantry[food]
+    return foodbin, cellbin
 
-def update_state(cells:dict, pantry:dict) -> None:
+def update_state(cells:dict) -> None:
     for cell in cells.values():
         cell.cell_growth()
         cell.cell_movement()
         cell.cell_genesis()
+
+def setup_game(starting_food, starting_cells) -> dict: 
+    pantry = {}
+    cells = {}
+
+    for food in range(starting_food):
+        food = Food.feed_random()
+        pantry[food.food_id] = food
+
+    for cell in range(starting_cells):
+        cell = Cell.cell_random()
+        cells[cell.cell_id] = cell
+
+    player = Player(400, 300, 10, 100, 0.5)
+
+    return pantry, cells, player
 
     # Cell.cell_collision(cells)
     # Food.feed_collision(cells, pantry)
